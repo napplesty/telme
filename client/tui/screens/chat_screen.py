@@ -179,12 +179,16 @@ class ChatScreen(Screen):
         # Get sender contact
         sender = self.contact_service.get_contact(message.sender_id)
 
-        assert sender is not None, (
-            f"Received message from unknown sender: {message.sender_id}"
-        )
+        if sender is None:
+            logger.warning(f"Received message from unknown sender: {message.sender_id} — ignoring")
+            return
 
         # Decrypt message
-        plaintext = await self.chat_service.decrypt_message(message, sender)
+        try:
+            plaintext = await self.chat_service.decrypt_message(message, sender)
+        except Exception as e:
+            logger.error(f"Failed to decrypt message from {sender.alias}: {e}")
+            plaintext = "[decryption failed]"
 
         # Update display if this is the current conversation
         if self.current_contact and message.sender_id == self.current_contact.user_id:
@@ -204,7 +208,9 @@ class ChatScreen(Screen):
 
     async def _send_message(self) -> None:
         """Send a message to the current contact."""
-        assert self.current_contact is not None, "No contact selected"
+        if not self.current_contact:
+            self.notify("Select a contact first", severity="warning")
+            return
 
         chat_input = self.query_one("#chat-input", ChatInput)
         message_text = chat_input.value.strip()
@@ -213,9 +219,14 @@ class ChatScreen(Screen):
             return
 
         # Send message
-        message = await self.chat_service.send_message(
-            self.current_contact, message_text
-        )
+        try:
+            message = await self.chat_service.send_message(
+                self.current_contact, message_text
+            )
+        except Exception as e:
+            logger.error(f"Failed to send message: {e}")
+            self.notify(f"Failed to send: {e}", severity="error")
+            return
 
         # Clear input
         chat_input.value = ""

@@ -67,7 +67,13 @@ class TelmeApp(App):
 
         Initializes all services and pushes the main chat screen.
         """
-        await self._initialize_services()
+        try:
+            await self._initialize_services()
+        except Exception as e:
+            logger.critical(f"Startup failed: {e}")
+            self.exit(message=f"Startup error: {e}")
+            return
+
         logger.info("Services initialized successfully")
 
         # Push the main chat screen

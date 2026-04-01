@@ -147,7 +147,12 @@ class MessageListWidget(Static):
         if message.message_id in self._decryption_cache:
             return self._decryption_cache[message.message_id]
 
-        plaintext = await self.chat_service.decrypt_message(message, sender)
+        try:
+            plaintext = await self.chat_service.decrypt_message(message, sender)
+        except Exception as e:
+            logger.error(f"Decryption error for message {message.message_id}: {e}")
+            plaintext = "[decryption failed]"
+
         self._decryption_cache[message.message_id] = plaintext
 
         return plaintext

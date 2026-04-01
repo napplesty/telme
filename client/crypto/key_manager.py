@@ -113,8 +113,18 @@ class KeyManager:
 
         Returns:
             VerifyKey object.
+
+        Raises:
+            ValueError: If the string is not valid base64 or not a valid 32-byte ed25519 key.
         """
-        public_key_bytes = base64.b64decode(public_key_base64)
+        try:
+            public_key_bytes = base64.b64decode(public_key_base64)
+        except Exception:
+            raise ValueError("Invalid public key: not valid base64 encoding")
+        if len(public_key_bytes) != 32:
+            raise ValueError(
+                f"Invalid public key: expected 32 bytes, got {len(public_key_bytes)}"
+            )
         return VerifyKey(public_key_bytes)
 
     @staticmethod

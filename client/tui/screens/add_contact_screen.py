@@ -139,7 +139,11 @@ class AddContactScreen(ModalScreen[Optional[Contact]]):
             return
 
         # Add contact via service
-        contact = self.contact_service.add_contact(public_key, alias)
+        try:
+            contact = self.contact_service.add_contact(public_key, alias)
+        except ValueError as e:
+            error_label.update(str(e))
+            return
         logger.info(f"Contact added: {alias}")
         self.dismiss(contact)
 
