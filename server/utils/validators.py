@@ -7,6 +7,9 @@ from server.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Pre-computed hex character set for fast validation
+_HEX_CHARS = frozenset("0123456789abcdef")
+
 
 def validate_base64(value: str, name: str) -> bytes:
     """Validate and decode a base64-encoded value.
@@ -72,12 +75,16 @@ def validate_user_id(user_id: str) -> None:
     if len(user_id) != 64:
         raise ValueError("User ID must be 64 characters (SHA256 hash)")
 
-    if not all(c in "0123456789abcdef" for c in user_id.lower()):
+    # Use frozenset for O(1) per-character lookup instead of iterating a string
+    if not all(c in _HEX_CHARS for c in user_id.lower()):
         raise ValueError("User ID must be hexadecimal")
 
 
 def validate_message_size(encrypted_message: str) -> None:
     """Validate encrypted message size.
+
+    Uses a fast pre-check based on base64 string length before doing full decode.
+    Base64 encodes 3 bytes into 4 characters, so decoded_size <= len(b64) * 3 / 4.
 
     Args:
         encrypted_message: Base64-encoded encrypted message.
@@ -85,6 +92,16 @@ def validate_message_size(encrypted_message: str) -> None:
     Raises:
         ValueError: If message is too large.
     """
+    # Fast reject: estimate decoded size from base64 string length
+    # This avoids allocating a potentially huge buffer for oversized messages
+    # Subtract 2 to account for base64 padding overhead in the estimate
+    estimated_size = len(encrypted_message) * 3 // 4 - 2
+    if estimated_size > config.MAX_MESSAGE_SIZE:
+        raise ValueError(
+            f"Message too large: ~{estimated_size} bytes "
+            f"(max: {config.MAX_MESSAGE_SIZE} bytes)"
+        )
+
     try:
         message_bytes = base64.b64decode(encrypted_message)
         if len(message_bytes) > config.MAX_MESSAGE_SIZE:
@@ -92,6 +109,8 @@ def validate_message_size(encrypted_message: str) -> None:
                 f"Message too large: {len(message_bytes)} bytes "
                 f"(max: {config.MAX_MESSAGE_SIZE} bytes)"
             )
+    except ValueError:
+        raise
     except Exception as e:
         logger.error(f"Failed to validate message size: {e}")
         raise ValueError("Invalid message format") from e
