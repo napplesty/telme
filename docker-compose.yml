@@ -1,0 +1,59 @@
+services:
+  telme-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telme-server
+    ports:
+      - "8000:8000"
+    environment:
+      - TELME_SERVER_HOST=0.0.0.0
+      - TELME_SERVER_PORT=8000
+      - TELME_SERVER_DEBUG=false
+      - TELME_SERVER_MESSAGE_TTL=300
+      - TELME_SERVER_CLEANUP_INTERVAL=30
+      - TELME_SERVER_RATE_LIMIT_ENABLED=true
+      - TELME_SERVER_RATE_LIMIT_REQUESTS=100
+      - TELME_SERVER_RATE_LIMIT_PERIOD=60
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+        reservations:
+          memory: 64M
+          cpus: "0.25"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Development profile with relaxed settings
+  telme-server-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telme-server-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - TELME_SERVER_HOST=0.0.0.0
+      - TELME_SERVER_PORT=8000
+      - TELME_SERVER_DEBUG=true
+      - TELME_SERVER_MESSAGE_TTL=60
+      - TELME_SERVER_CLEANUP_INTERVAL=10
+      - TELME_SERVER_RATE_LIMIT_ENABLED=false
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+    profiles:
+      - dev
+
+# To run production:  docker compose up telme-server
+# To run development: docker compose --profile dev up telme-server-dev
